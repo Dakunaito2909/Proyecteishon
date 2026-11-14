@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GELAB-AV | Gestión de Préstamos Audiovisuales - IUE</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- PANTALLA DE ACCESO SIMULADO (RF-013 / RES-001 / RES-002) -->
+  <div id="login-view" class="login-wrapper">
+    <div class="login-card">
+      <div class="brand-badge">IUE · Centro de Medios y Laboratorios</div>
+      <h1>GELAB-AV</h1>
+      <p class="subtitle">Prototipo Académico de Préstamo de Equipos Audiovisuales</p>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-code">Código de Usuario (Ficticio)</label>
+          <input type="text" id="login-code" placeholder="Ej: EST-101" required />
+        </div>
+        <div class="form-group">
+          <label for="login-pass">Clave Simulada</label>
+          <input type="password" id="login-pass" placeholder="1234" required />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Ingresar al Sistema</button>
+      </form>
+
+      <div class="quick-login-box">
+        <p><strong>Acceso rápido de prueba por perfil (Clave: 1234):</strong></p>
+        <div class="quick-buttons">
+          <button type="button" class="btn btn-outline btn-sm" onclick="quickLogin('EST-101')">Estudiante (Al día)</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="quickLogin('EST-102')">Estudiante (Con Mora)</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="quickLogin('DOC-201')">Docente</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="quickLogin('AUX-301')">Auxiliar Lab / Admin</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="quickLogin('SOP-401')">Soporte / Inventario</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APLICACIÓN PRINCIPAL -->
+  <div id="app-view" class="hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="logo-title">GELAB-AV</span>
+        <span class="campus-tag">Centro de Medios y Laboratorios · IUE</span>
+      </div>
+      <div class="topbar-right">
+        <button id="btn-simulate-overdue" class="btn btn-warning btn-sm" title="Ejecutar regla RN-012">
+          ⏱ Simular Vencimientos (RN-012)
+        </button>
+        <button id="btn-notifications" class="btn btn-light btn-sm">
+          🔔 Alertas (<span id="notif-count">0</span>)
+        </button>
+        <div class="user-pill">
+          <strong id="current-user-name">Usuario</strong>
+          <span id="current-user-role" class="role-tag">Rol</span>
+        </div>
+        <button id="btn-logout" class="btn btn-danger btn-sm">Salir</button>
+      </div>
+    </header>
+
+    <!-- BANNER DE ESTADO DEL USUARIO (Bloqueos RF-008 o Límites RN-014) -->
+    <div id="user-alert-banner" class="alert-banner hidden"></div>
+
+    <!-- NAVEGACIÓN POR PESTAÑAS -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-catalog">1. Catálogo y Disponibilidad (RF-001)</button>
+      <button class="tab-btn" data-tab="tab-requests">2. Solicitudes y Préstamos (RF-002..008)</button>
+      <button class="tab-btn" data-tab="tab-tech">3. Soporte Técnico e Inventario (RF-010/014/018)</button>
+      <button class="tab-btn" data-tab="tab-history">4. Historial y Filtros (RF-009)</button>
+    </nav>
+
+    <main class="container">
+      <!-- PESTAÑA 1: CATÁLOGO Y CONSULTA DE DISPONIBILIDAD -->
+      <section id="tab-catalog" class="tab-content active">
+        <div class="card">
+          <h2>Consultar Disponibilidad por Periodo (RF-001 / RN-013)</h2>
+          <p class="help-text">Verifica cruces horarios, estado técnico y accesorios obligatorios/opcionales antes de reservar.</p>
+          <div class="grid-3">
+            <div class="form-group">
+              <label for="filter-start">Fecha y Hora de Inicio</label>
+              <input type="datetime-local" id="filter-start" />
+            </div>
+            <div class="form-group">
+              <label for="filter-end">Fecha y Hora de Devolución</label>
+              <input type="datetime-local" id="filter-end" />
+            </div>
+            <div class="form-group align-end">
+              <button id="btn-check-availability" class="btn btn-primary">Verificar Disponibilidad</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="catalog-grid" class="catalog-grid"></div>
+      </section>
+
+      <!-- PESTAÑA 2: GESTIÓN DE SOLICITUDES Y PRÉSTAMOS -->
+      <section id="tab-requests" class="tab-content">
+        <!-- Formulario de Nueva Solicitud / Edición Borrador (RF-002 / RF-015) -->
+        <div id="request-form-card" class="card">
+          <h2 id="req-form-title">Registrar Solicitud de Préstamo (RF-002 / RF-015)</h2>
+          <form id="loan-request-form">
+            <input type="hidden" id="edit-request-id" />
+            <div class="grid-2">
+              <div class="form-group">
+                <label for="req-asset">Equipo o Kit Audiovisual</label>
+                <select id="req-asset" required></select>
+              </div>
+              <div class="form-group">
+                <label for="req-purpose">Actividad Académica / Asignatura</label>
+                <input type="text" id="req-purpose" placeholder="Ej: Grabación documental Ingeniería de Software" required />
+              </div>
+              <div class="form-group">
+                <label for="req-start">Inicio del Préstamo</label>
+                <input type="datetime-local" id="req-start" required />
+              </div>
+              <div class="form-group">
+                <label for="req-end">Devolución Programada</label>
+                <input type="datetime-local" id="req-end" required />
+              </div>
+            </div>
+
+            <div id="req-accessories-box" class="accessories-selector"></div>
+
+            <div class="form-actions">
+              <button type="button" id="btn-save-draft" class="btn btn-secondary">Guardar como Borrador (RF-015)</button>
+              <button type="submit" class="btn btn-primary">Enviar Solicitud Formal</button>
+              <button type="button" id="btn-cancel-edit" class="btn btn-light hidden">Cancelar Edición</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Listado de Solicitudes Activas y Flujo Administrativo -->
+        <div class="card">
+          <div class="card-header-flex">
+            <h2>Bandeja de Solicitudes y Préstamos Activos (RN-015)</h2>
+            <label class="concurrency-toggle" title="Simula RF-019: bloqueo de doble decisión">
+              <input type="checkbox" id="simulate-concurrency-lock" />
+              Simular bloqueo de concurrencia (RF-019)
+            </label>
+          </div>
+          <div id="active-requests-list" class="requests-list"></div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 3: SOPORTE TÉCNICO E INVENTARIO -->
+      <section id="tab-tech" class="tab-content">
+        <div class="grid-2-uneven">
+          <!-- Bandeja de Revisiones Técnicas y Novedades (RF-006 / RF-007 / RF-010 / RF-020) -->
+          <div class="card">
+            <h2>Bandeja de Novedades, Daños y Faltantes (RF-006 / RF-007 / RF-020)</h2>
+            <p class="help-text">Reportes generados en devoluciones. Gestiona diagnóstico técnico y reposición de accesorios.</p>
+            <div id="incidents-list"></div>
+
+            <hr class="divider" />
+            <h3>Control de Estado Técnico de Equipos (RF-010 / RF-018)</h3>
+            <div id="tech-assets-list"></div>
+          </div>
+
+          <!-- Registro de Equipos y Kits (RF-014) -->
+          <div class="card">
+            <h2>Registrar Nuevo Equipo / Kit (RF-014)</h2>
+            <form id="new-asset-form">
+              <div class="form-group">
+                <label for="asset-name">Nombre del Equipo o Kit</label>
+                <input type="text" id="asset-name" placeholder="Ej: Kit Cámara Canon EOS R50" required />
+              </div>
+              <div class="form-group">
+                <label for="asset-category">Categoría</label>
+                <select id="asset-category">
+                  <option value="Cámara / Video">Cámara / Video</option>
+                  <option value="Audio">Audio</option>
+                  <option value="Cómputo">Cómputo</option>
+                  <option value="Proyección">Proyección</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="asset-mandatory">Accesorios Obligatorios (separados por coma)</label>
+                <input type="text" id="asset-mandatory" placeholder="Batería, Cargador, Estuche, Cable HDMI" required />
+              </div>
+              <div class="form-group">
+                <label for="asset-optional">Accesorios Opcionales (separados por coma)</label>
+                <input type="text" id="asset-optional" placeholder="Trípode liviano, Memoria SD 64GB" />
+              </div>
+              <div class="form-group">
+                <label for="asset-guide">Instructivo de Uso Rápido</label>
+                <textarea id="asset-guide" rows="2" placeholder="Verificar carga antes de encender y proteger lente."></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-block">Habilitar en Catálogo</button>
+            </form>
+
+            <hr class="divider" />
+            <button id="btn-reset-demo" class="btn btn-outline btn-block">🔄 Reiniciar Datos de Prueba (RES-002)</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 4: HISTORIAL CON FILTROS COMBINADOS (RF-009) -->
+      <section id="tab-history" class="tab-content">
+        <div class="card">
+          <h2>Historial de Solicitudes y Préstamos (RF-009)</h2>
+          <div class="grid-4">
+            <div class="form-group">
+              <label for="hist-user">Usuario</label>
+              <input type="text" id="hist-user" placeholder="Nombre o código..." />
+            </div>
+            <div class="form-group">
+              <label for="hist-asset">Equipo / Kit</label>
+              <input type="text" id="hist-asset" placeholder="Cámara, micrófono..." />
+            </div>
+            <div class="form-group">
+              <label for="hist-status">Estado (RN-015)</label>
+              <select id="hist-status">
+                <option value="">Todos los estados</option>
+                <option value="Borrador">Borrador</option>
+                <option value="Solicitado">Solicitado</option>
+                <option value="Aprobado">Aprobado</option>
+                <option value="Rechazado">Rechazado</option>
+                <option value="En Préstamo">En Préstamo</option>
+                <option value="Vencido">Vencido</option>
+                <option value="Devuelto">Devuelto</option>
+                <option value="Con Novedad">Con Novedad</option>
+                <option value="Cerrado">Cerrado</option>
+              </select>
+            </div>
+            <div class="form-group align-end">
+              <button id="btn-filter-history" class="btn btn-primary btn-block">Aplicar Filtros</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Solicitante</th>
+                  <th>Equipo / Kit</th>
+                  <th>Periodo</th>
+                  <th>Estado</th>
+                  <th>Trazabilidad / Observaciones</th>
+                </tr>
+              </thead>
+              <tbody id="history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL CHECKLIST ENTREGA Y DEVOLUCIÓN (RF-005 / RF-006 / RF-007 / RF-020) -->
+  <div id="checklist-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">Checklist Digital</h3>
+        <button type="button" class="close-modal" onclick="closeChecklistModal()">&times;</button>
+      </div>
+      <form id="checklist-form">
+        <input type="hidden" id="modal-req-id" />
+        <input type="hidden" id="modal-mode" />
+        <p id="modal-subtitle" class="help-text"></p>
+
+        <div id="modal-checklist-items" class="checklist-box"></div>
+
+        <div id="return-incident-fields" class="hidden">
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="check-damage" />
+              <strong>Reportar posible daño técnico en el equipo principal (RF-007 / RF-020)</strong>
+            </label>
+          </div>
+          <div id="damage-detail-box" class="form-group hidden">
+            <label for="damage-desc">Descripción del daño para Soporte Técnico</label>
+            <textarea id="damage-desc" rows="2" placeholder="Ej: Lente con rayón superficial / No enciende pantalla"></textarea>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="photo-evidence">Evidencia Fotográfica Simulada (RF-005)</label>
+          <input type="text" id="photo-evidence" value="foto_evidencia_lab_2026.jpg" required />
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Confirmar Acta Digital</button>
+          <button type="button" class="btn btn-light" onclick="closeChecklistModal()">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- PANEL LATERAL DE NOTIFICACIONES INTERNAS (RF-017) -->
+  <aside id="notif-drawer" class="drawer hidden">
+    <div class="drawer-header">
+      <h3>Centro de Alertas Internas (RF-017)</h3>
+      <button type="button" class="close-modal" onclick="toggleNotifications()">&times;</button>
+    </div>
+    <div id="notif-list" class="notif-list"></div>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>
